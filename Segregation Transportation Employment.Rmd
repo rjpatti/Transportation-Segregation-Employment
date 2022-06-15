@@ -1,0 +1,96 @@
+---
+title: "Segregation Transportation Employment"
+author: "Richard Patti"
+date: '2022-06-11'
+output: html_document
+---
+
+```{r setup, load packages}
+library(dplyr)
+library(foreign)
+library(haven)
+library(skimr)
+library(readxl)
+library(car)
+library(tidyverse)
+library(rmarkdown)
+library(ggplot2)
+library(vtable)
+library(lme4)
+library(modelsummary)
+library(Hmisc)
+library(sf)
+library(psych)
+library(naniar)
+library(gtools)
+
+
+```
+
+Read in Smart Location Database
+
+```{r SLD load}
+
+sld <-st_read("C:\\Users\\Richard\\Documents\\!!!Current Projects\\Segregation Transportation Employment\\data\\SmartLocationDatabase.gdb")
+
+reduced_sld <- sld %>% select(GEOID10, GEOID20, STATEFP, COUNTYFP, TRACTCE, BLKGRPCE, CSA, CSA_Name, CBSA, CBSA_Name, Pct_AO0, Pct_AO1, P_WrkAge, Pct_AO2p, R_PCTLOWWAGE, E_PctLowWage, D1C, D4B025, D4B050, D5AR, D5AE, D5BE, D5CR, D5CE, D5CEI, D5DR, D5DRI, D5DE, D5DEI)
+
+sld_df <- as.data.frame(reduced_sld) %>% select(-Shape) %>% filter(complete.cases(.))
+
+
+newsld<- sld_df %>% replace_with_na_all(condition = ~.x == -99999)
+
+```
+
+Read in Segregation Data from S4
+
+```{r S4 load}
+s4 <-read_excel("C:\\Users\\Richard\\Documents\\!!!Current Projects\\Segregation Transportation Employment\\data\\segregation data 2010_2020.xlsx") %>% filter(m_t_20>=500000) 
+
+s4 <- s4 %>% select(metro, metroname20, m_w_10, m_w_20, m_b_10, m_b_20, m_h_10, m_h_20, m_t_10, m_t_20, m_dwb_10, m_dwb_20, m_dwh_10, m_dwh_20, m_xwb_10, m_xwb_20, m_xwh_10, m_xwh_20, m_xbw_10, m_xbw_20, m_xhw_10, m_xhw_20, m_xww_10, m_xww_20, m_xbb_10, m_xbb_20, m_xhh_10, m_xhh_20, m_pw_10, m_pw_20, m_pb_10, m_pb_20, m_ph_10, m_ph_20) %>% mutate(mergeid= as.numeric(metro))
+
+
+xwalk <- read.csv("C:\\Users\\Richard\\Documents\\!!!Current Projects\\Segregation Transportation Employment\\data\\cbsa2fipsxw.csv") %>% mutate(mergeid= as.numeric(metrodivisioncode))
+
+#join together
+s4xwalk <- left_join(s4,xwalk, by= "mergeid") %>% select(-mergeid)
+
+
+```
+
+Read in necessary ACS variables
+```{r ACS load}
+
+bg_pop <- read.csv("C:\\Users\\Richard\\Documents\\!!!Current Projects\\Segregation Transportation Employment\\data\\acs_bg_pop.csv")
+
+```
+
+
+```{r link data sets together}
+newsld <- sld_df %>% mutate(mergeid= as.numeric(GEOID20))
+
+bg_pop <- bg_pop %>% separate(Geo_GEOID, 
+           into = c("text", "id"), 
+           sep = "(?<=[A-Za-z])(?=[0-9])"
+           ) %>% select(-text) %>% mutate(mergeid=as.numeric(id))
+
+
+# Join SLD to ACS Data
+sld_acs <-left_join(newsld, bg_pop, by= "mergeid") %>% select(-mergeid)
+
+#full linkage
+sld_acs <-sld_acs %>% mutate (mergeid= as.numeric(CSA))
+
+s4_walk <-s4xwalk %>% mutate (mergeid= as.numeric(csacode))
+
+
+
+full <- left_join(s4_walk, sld_acs, by= "mergeid")
+
+
+newest<- step1 %>% replace_with_na_all(condition = ~.x == -99999)
+
+
+
+
+```
